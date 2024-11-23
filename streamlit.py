@@ -376,15 +376,6 @@ def _render_api_response(
                 st.write(response)
 
 
-def _format_error(error: Exception) -> str:
-    """Format the error message and traceback."""
-    body = str(error)
-    body += "\n\n**Traceback:**"
-    lines = "\n".join(traceback.format_exception(error))
-    body += f"\n\n```{lines}```"
-    return body
-
-
 def _render_error(error: Exception):
     if isinstance(error, RateLimitError):
         body = "You have been rate limited."
@@ -392,7 +383,10 @@ def _render_error(error: Exception):
             body += f" **Retry after {str(timedelta(seconds=int(retry_after)))} (HH:MM:SS).** See our API [documentation](https://docs.anthropic.com/en/api/rate-limits) for more details."
         body += f"\n\n{error.message}"
     else:
-        body = _format_error(error)
+        body = str(error)
+        body += "\n\n**Traceback:**"
+        lines = "\n".join(traceback.format_exception(error))
+        body += f"\n\n```{lines}```"
     save_to_storage(f"error_{datetime.now().timestamp()}.md", body)
     st.error(f"**{error.__class__.__name__}**\n\n{body}", icon=":material/error:")
 
@@ -402,11 +396,37 @@ def _render_message(
     message: str | BetaContentBlockParam | ToolResult,
 ):
     """Convert input from the user or output from the agent to a streamlit message."""
-    is_tool_result = isinstance(message, ToolResult)
+    is_tool_result = not isinstance(message, str | dict)
     if not message or (
         is_tool_result
+        and st.session_state.hide_images
+        and not hasattr(message, "error")
+        and not hasattr(message, "output")
     ):
         return
+    with st.chat_message(sender):
+        if is_tool_result: 
+            message = cast(ToolResult, message)
+            if message.output:
+                if message.__class__.__name__ == "CLIResult":
+                    st.code(message.output)
+                else:
+                    st.markdown(message.output)
+            if message.error:
+                st.error(message.error)
+            if message.base64_image and not st.session_state.hide_images:
+                st.image(base64.b64decode(message.base64_image))
+        elif isinstance(message, dict):
+            if message["type"] == "text":
+                st.write(message["text"])
+            elif message["type"] == "tool_use":
+                st.code(f'Tool Use: {message["name"]}\nInput: {message["input"]}')
+            else:
+                # only expected return types are text and tool_use
+                raise Exception(f'Unexpected response type {message["type"]}')
+        else:
+            st.markdown(message)
 
-    if sender == Sender.USER:
-        with st.chat_Here is the continued modified `streamlit.py` file:
+
+if __name__ == "__main__":
+    asyncio.run(main())
