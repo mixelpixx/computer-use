@@ -5,13 +5,13 @@ Entrypoint for streamlit, see https://docs.streamlit.io/
 import asyncio
 import base64
 import os
-from pathlib import Path
 import subprocess
 import traceback
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from enum import StrEnum
 from functools import partial
+from pathlib import PosixPath
 from typing import cast
 
 import httpx
@@ -24,22 +24,15 @@ from anthropic.types.beta import (
 )
 from streamlit.delta_generator import DeltaGenerator
 
-from loop import (
+from computer_use_demo.loop import (
     PROVIDER_TO_DEFAULT_MODEL_NAME,
     APIProvider,
     sampling_loop,
 )
-from tools import ToolResult
+from computer_use_demo.tools import ToolResult
 
-CONFIG_DIR = Path(os.environ['APPDATA']) / "anthropic"
-try:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    API_KEY_FILE = CONFIG_DIR / "api_key"
-except Exception:
-    # Fallback to user directory if APPDATA is not accessible
-    CONFIG_DIR = Path.home() / ".anthropic"
-    API_KEY_FILE = CONFIG_DIR / "api_key"
-
+CONFIG_DIR = PosixPath("~/.anthropic").expanduser()
+API_KEY_FILE = CONFIG_DIR / "api_key"
 STREAMLIT_STYLE = """
 <style>
     /* Highlight the stop button in red */
@@ -154,7 +147,7 @@ async def main():
         st.text_area(
             "Custom System Prompt Suffix",
             key="custom_system_prompt",
-            help="Additional instructions to append to the system prompt. see loop.py for the base system prompt.",
+            help="Additional instructions to append to the system prompt. see computer_use_demo/loop.py for the base system prompt.",
             on_change=lambda: save_to_storage(
                 "system_prompt", st.session_state.custom_system_prompt
             ),
@@ -165,8 +158,10 @@ async def main():
             with st.spinner("Resetting..."):
                 st.session_state.clear()
                 setup_state()
+
+                subprocess.run("pkill Xvfb; pkill tint2", shell=True)  # noqa: ASYNC221
                 await asyncio.sleep(1)
-                st.success("Application state has been reset.")
+                subprocess.run("./start_all.sh", shell=True)  # noqa: ASYNC221
 
     if not st.session_state.auth_validated:
         if auth_error := validate_auth(
@@ -396,6 +391,7 @@ def _render_message(
     message: str | BetaContentBlockParam | ToolResult,
 ):
     """Convert input from the user or output from the agent to a streamlit message."""
+    # streamlit's hotreloading breaks isinstance checks, so we need to check for class names
     is_tool_result = not isinstance(message, str | dict)
     if not message or (
         is_tool_result
@@ -405,7 +401,7 @@ def _render_message(
     ):
         return
     with st.chat_message(sender):
-        if is_tool_result: 
+        if is_tool_result:
             message = cast(ToolResult, message)
             if message.output:
                 if message.__class__.__name__ == "CLIResult":
