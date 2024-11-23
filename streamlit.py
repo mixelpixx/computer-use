@@ -9,7 +9,8 @@ import subprocess
 import traceback
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from enum import StrEnum
+
+from enum import Enum, StrEnum
 from functools import partial
 from pathlib import PosixPath
 from typing import cast
@@ -52,7 +53,7 @@ STREAMLIT_STYLE = """
 </style>
 """
 
-WARNING_TEXT = "â ï¸ Security Alert: Never provide access to sensitive accounts or data, as malicious web content can hijack Claude's behavior"
+WARNING_TEXT = "Ã¢ÂÂ Ã¯Â¸Â Security Alert: Never provide access to sensitive accounts or data, as malicious web content can hijack Claude's behavior"
 INTERRUPT_TEXT = "(user stopped or interrupted and wrote the following)"
 INTERRUPT_TOOL_ERROR = "human stopped or interrupted tool execution"
 
