@@ -1,8 +1,9 @@
 import asyncio
 import os
+import subprocess
 from typing import ClassVar, Literal
 
-from anthropic.types.beta import BetaToolBash20241022Param
+from anthropic.types.beta import BetaToolBash20241022Param, BetaToolUnionParam
 
 from .base import BaseAnthropicTool, CLIResult, ToolError, ToolResult
 
@@ -13,7 +14,7 @@ class _BashSession:
     _started: bool
     _process: asyncio.subprocess.Process
 
-    command: str = "/bin/bash"
+    command: str = "cmd.exe"
     _output_delay: float = 0.2  # seconds
     _timeout: float = 120.0  # seconds
     _sentinel: str = "<<exit>>"
@@ -28,7 +29,7 @@ class _BashSession:
 
         self._process = await asyncio.create_subprocess_shell(
             self.command,
-            preexec_fn=os.setsid,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0,
             shell=True,
             bufsize=0,
             stdin=asyncio.subprocess.PIPE,
@@ -51,7 +52,7 @@ class _BashSession:
         if not self._started:
             raise ToolError("Session has not started.")
         if self._process.returncode is not None:
-            return ToolResult(
+            return CLIResult(
                 system="tool must be restarted",
                 error=f"bash has exited with returncode {self._process.returncode}",
             )
