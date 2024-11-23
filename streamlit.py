@@ -401,10 +401,12 @@ def _render_message(
     message: str | BetaContentBlockParam | ToolResult,
 ):
     """Convert input from the user or output from the agent to a streamlit message."""
-    # streamlit's hotreloading breaks isinstance checks, so we need to check for class names
-    is_tool_result = not isinstance(message, str | dict)
+    is_tool_result = isinstance(message, ToolResult)
     if not message or (
         is_tool_result
-        anHere is the continued modified `streamlit.py` file:
+    ):
+        return
 
-streamlit.py
+    if sender == Sender.USER:
+        with st.chat_message(Sender.USER):
+            if isinstance(Continuing the modified `streamlit.py` file:
