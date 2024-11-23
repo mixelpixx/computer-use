@@ -166,6 +166,7 @@ async def main():
                 st.session_state.clear()
                 setup_state()
                 await asyncio.sleep(1)
+                st.success("Application state has been reset.")
 
     if not st.session_state.auth_validated:
         if auth_error := validate_auth(
@@ -408,5 +409,4 @@ def _render_message(
         return
 
     if sender == Sender.USER:
-        with st.chat_message(Sender.USER):
-            if isinstance(Continuing the modified `streamlit.py` file:
+        with st.chat_Here is the continued modified `streamlit.py` file:
