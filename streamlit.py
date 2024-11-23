@@ -5,13 +5,13 @@ Entrypoint for streamlit, see https://docs.streamlit.io/
 import asyncio
 import base64
 import os
+from pathlib import Path
 import subprocess
 import traceback
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from enum import StrEnum
 from functools import partial
-from pathlib import PosixPath
 from typing import cast
 
 import httpx
@@ -24,15 +24,22 @@ from anthropic.types.beta import (
 )
 from streamlit.delta_generator import DeltaGenerator
 
-from computer_use_demo.loop import (
+from loop import (
     PROVIDER_TO_DEFAULT_MODEL_NAME,
     APIProvider,
     sampling_loop,
 )
-from computer_use_demo.tools import ToolResult
+from tools import ToolResult
 
-CONFIG_DIR = PosixPath("~/.anthropic").expanduser()
-API_KEY_FILE = CONFIG_DIR / "api_key"
+CONFIG_DIR = Path(os.environ['APPDATA']) / "anthropic"
+try:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    API_KEY_FILE = CONFIG_DIR / "api_key"
+except Exception:
+    # Fallback to user directory if APPDATA is not accessible
+    CONFIG_DIR = Path.home() / ".anthropic"
+    API_KEY_FILE = CONFIG_DIR / "api_key"
+
 STREAMLIT_STYLE = """
 <style>
     /* Highlight the stop button in red */
@@ -147,7 +154,7 @@ async def main():
         st.text_area(
             "Custom System Prompt Suffix",
             key="custom_system_prompt",
-            help="Additional instructions to append to the system prompt. see computer_use_demo/loop.py for the base system prompt.",
+            help="Additional instructions to append to the system prompt. see loop.py for the base system prompt.",
             on_change=lambda: save_to_storage(
                 "system_prompt", st.session_state.custom_system_prompt
             ),
@@ -158,10 +165,7 @@ async def main():
             with st.spinner("Resetting..."):
                 st.session_state.clear()
                 setup_state()
-
-                subprocess.run("pkill Xvfb; pkill tint2", shell=True)  # noqa: ASYNC221
                 await asyncio.sleep(1)
-                subprocess.run("./start_all.sh", shell=True)  # noqa: ASYNC221
 
     if not st.session_state.auth_validated:
         if auth_error := validate_auth(
@@ -371,6 +375,15 @@ def _render_api_response(
                 st.write(response)
 
 
+def _format_error(error: Exception) -> str:
+    """Format the error message and traceback."""
+    body = str(error)
+    body += "\n\n**Traceback:**"
+    lines = "\n".join(traceback.format_exception(error))
+    body += f"\n\n```{lines}```"
+    return body
+
+
 def _render_error(error: Exception):
     if isinstance(error, RateLimitError):
         body = "You have been rate limited."
@@ -378,10 +391,7 @@ def _render_error(error: Exception):
             body += f" **Retry after {str(timedelta(seconds=int(retry_after)))} (HH:MM:SS).** See our API [documentation](https://docs.anthropic.com/en/api/rate-limits) for more details."
         body += f"\n\n{error.message}"
     else:
-        body = str(error)
-        body += "\n\n**Traceback:**"
-        lines = "\n".join(traceback.format_exception(error))
-        body += f"\n\n```{lines}```"
+        body = _format_error(error)
     save_to_storage(f"error_{datetime.now().timestamp()}.md", body)
     st.error(f"**{error.__class__.__name__}**\n\n{body}", icon=":material/error:")
 
@@ -395,34 +405,6 @@ def _render_message(
     is_tool_result = not isinstance(message, str | dict)
     if not message or (
         is_tool_result
-        and st.session_state.hide_images
-        and not hasattr(message, "error")
-        and not hasattr(message, "output")
-    ):
-        return
-    with st.chat_message(sender):
-        if is_tool_result:
-            message = cast(ToolResult, message)
-            if message.output:
-                if message.__class__.__name__ == "CLIResult":
-                    st.code(message.output)
-                else:
-                    st.markdown(message.output)
-            if message.error:
-                st.error(message.error)
-            if message.base64_image and not st.session_state.hide_images:
-                st.image(base64.b64decode(message.base64_image))
-        elif isinstance(message, dict):
-            if message["type"] == "text":
-                st.write(message["text"])
-            elif message["type"] == "tool_use":
-                st.code(f'Tool Use: {message["name"]}\nInput: {message["input"]}')
-            else:
-                # only expected return types are text and tool_use
-                raise Exception(f'Unexpected response type {message["type"]}')
-        else:
-            st.markdown(message)
+        anHere is the continued modified `streamlit.py` file:
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
+streamlit.py
