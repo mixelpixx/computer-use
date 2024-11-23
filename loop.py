@@ -1,5 +1,17 @@
 import platform
 from datetime import datetime
+from enum import Enum
+
+class APIProvider(Enum):
+    ANTHROPIC = "anthropic"
+    BEDROCK = "bedrock"
+    VERTEX = "vertex"
+
+PROVIDER_TO_DEFAULT_MODEL_NAME = {
+    APIProvider.ANTHROPIC: "claude-2",
+    APIProvider.BEDROCK: "amazon.titan-tg1-large",
+    APIProvider.VERTEX: "text-bison",
+}
 
 SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
 * You are utilizing a Windows {platform.machine()} PC.
