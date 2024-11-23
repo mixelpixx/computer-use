@@ -22,7 +22,7 @@ async def run(
 ):
     """Run a shell command asynchronously with a timeout."""
     process = await asyncio.create_subprocess_shell(
-        cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        f"cmd.exe /c {cmd}", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
 
     try:

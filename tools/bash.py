@@ -8,15 +8,15 @@ from .base import BaseAnthropicTool, CLIResult, ToolError, ToolResult
 
 
 class _BashSession:
-    """A session of a bash shell."""
+    """A session of a Windows command prompt."""
 
     _started: bool
     _process: asyncio.subprocess.Process
 
-    command: str = "/bin/bash"
+    command: str = "cmd.exe"
     _output_delay: float = 0.2  # seconds
     _timeout: float = 120.0  # seconds
-    _sentinel: str = "<<exit>>"
+    _sentinel: str = "END_OF_COMMAND"
 
     def __init__(self):
         self._started = False
@@ -28,9 +28,7 @@ class _BashSession:
 
         self._process = await asyncio.create_subprocess_shell(
             self.command,
-            preexec_fn=os.setsid,
             shell=True,
-            bufsize=0,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -39,7 +37,7 @@ class _BashSession:
         self._started = True
 
     def stop(self):
-        """Terminate the bash shell."""
+        """Terminate the command prompt."""
         if not self._started:
             raise ToolError("Session has not started.")
         if self._process.returncode is not None:
@@ -47,17 +45,17 @@ class _BashSession:
         self._process.terminate()
 
     async def run(self, command: str):
-        """Execute a command in the bash shell."""
+        """Execute a command in the command prompt."""
         if not self._started:
             raise ToolError("Session has not started.")
         if self._process.returncode is not None:
             return ToolResult(
                 system="tool must be restarted",
-                error=f"bash has exited with returncode {self._process.returncode}",
+                error=f"command prompt has exited with returncode {self._process.returncode}",
             )
         if self._timed_out:
             raise ToolError(
-                f"timed out: bash has not returned in {self._timeout} seconds and must be restarted",
+                f"timed out: command prompt has not returned in {self._timeout} seconds and must be restarted",
             )
 
         # we know these are not None because we created the process with PIPEs
@@ -67,7 +65,7 @@ class _BashSession:
 
         # send command to the process
         self._process.stdin.write(
-            command.encode() + f"; echo '{self._sentinel}'\n".encode()
+            command.encode() + f" && echo {self._sentinel}\n".encode()
         )
         await self._process.stdin.drain()
 
@@ -86,7 +84,7 @@ class _BashSession:
         except asyncio.TimeoutError:
             self._timed_out = True
             raise ToolError(
-                f"timed out: bash has not returned in {self._timeout} seconds and must be restarted",
+                f"timed out: command prompt has not returned in {self._timeout} seconds and must be restarted",
             ) from None
 
         if output.endswith("\n"):
@@ -105,7 +103,7 @@ class _BashSession:
 
 class BashTool(BaseAnthropicTool):
     """
-    A tool that allows the agent to run bash commands.
+    A tool that allows the agent to run Windows command prompt commands.
     The tool parameters are defined by Anthropic and are not editable.
     """
 
