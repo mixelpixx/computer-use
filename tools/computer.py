@@ -2,6 +2,7 @@ import asyncio
 import base64
 import os
 from pathlib import Path
+from enum import Enum
 from typing import Literal, TypedDict
 from uuid import uuid4
 
@@ -44,9 +45,12 @@ MAX_SCALING_TARGETS: dict[str, Resolution] = {
 }
 
 
-class ScalingSource(StrEnum):
-    COMPUTER = "computer"
-    API = "api"
+class ScalingSource(Enum):
+    SCREEN = "screen"
+    IMAGE = "image"
+
+    def __str__(self):
+        return self.value
 
 
 class ComputerToolOptions(TypedDict):
@@ -77,7 +81,7 @@ class ComputerTool(BaseAnthropicTool):
     @property
     def options(self) -> ComputerToolOptions:
         width, height = self.scale_coordinates(
-            ScalingSource.COMPUTER, self.width, self.height
+            ScalingSource.SCREEN, self.width, self.height
         )
         return {
             "display_width_px": width,
@@ -152,7 +156,7 @@ class ComputerTool(BaseAnthropicTool):
             elif action == "cursor_position":
                 x, y = pyautogui.position()
                 x, y = self.scale_coordinates(
-                    ScalingSource.COMPUTER, x, y
+                    ScalingSource.SCREEN, x, y
                 )
                 return ToolResult(output=f"X={x},Y={y}")
             else:
@@ -199,7 +203,7 @@ class ComputerTool(BaseAnthropicTool):
         # should be less than 1
         x_scaling_factor = target_dimension["width"] / self.width
         y_scaling_factor = target_dimension["height"] / self.height
-        if source == ScalingSource.API:
+        if source == ScalingSource.IMAGE:
             if x > self.width or y > self.height:
                 raise ToolError(f"Coordinates {x}, {y} are out of bounds")
             # scale up
