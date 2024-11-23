@@ -6,6 +6,6 @@ SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
 * You can use Windows CMD commands and PowerShell.
 * GUI applications can be launched directly.
 * Screen automation is handled through PyAutoGUI.
-* The current date is {datetime.today().strftime('%A, %B %-d, %Y')}.
+* The current date is {datetime.today().strftime('%A, %B %d, %Y').lstrip("0").replace(" 0", " ")}.
 </SYSTEM_CAPABILITY>
 """
