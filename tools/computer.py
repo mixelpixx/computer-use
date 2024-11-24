@@ -109,12 +109,11 @@ class ComputerTool(BaseAnthropicTool):
         action: Action,
         text: str | None = None,
         coordinate: tuple[int, int] | None = None,
-        **kwargs,
     ):
         if action in ("mouse_move", "left_click_drag"):
             if coordinate is None:
                 raise ToolError(f"coordinate is required for {action}")
-            x, y = coordinate
+            x, y = self.scale_coordinates(ScalingSource.API, *coordinate)
 
             if action == "mouse_move":
                 pyautogui.moveTo(x, y)
@@ -184,8 +183,7 @@ class ComputerTool(BaseAnthropicTool):
 
     def scale_coordinates(self, source: ScalingSource, x: int, y: int):
         """Scale coordinates to a target maximum resolution."""
-        if not self._scaling_enabled:
-            return x, y
+        # Always perform scaling
         ratio = self.width / self.height
         target_dimension = None
         for dimension in MAX_SCALING_TARGETS.values():
@@ -199,10 +197,10 @@ class ComputerTool(BaseAnthropicTool):
         # should be less than 1
         x_scaling_factor = target_dimension["width"] / self.width
         y_scaling_factor = target_dimension["height"] / self.height
-        if source == ScalingSource.API:
+        if source == ScalingSource.API:  # Scaling from API to computer
             if x > self.width or y > self.height:
                 raise ToolError(f"Coordinates {x}, {y} are out of bounds")
             # scale up
             return round(x / x_scaling_factor), round(y / y_scaling_factor)
-        # scale down
+        # Scaling from computer to API (scale down)
         return round(x * x_scaling_factor), round(y * y_scaling_factor)

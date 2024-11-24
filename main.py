@@ -18,9 +18,16 @@ from tools.debug import ui_logger, api_logger, log_system_info, monitor_resource
 import traceback
 
 load_dotenv()
-    
+
 api_key = os.getenv('ANTHROPIC_API_KEY')
 os.environ['ANTHROPIC_API_KEY'] = api_key
+
+SYSTEM_PROMPT = """
+After each step, take a screenshot and carefully evaluate if you have achieved the right outcome. 
+Explicitly show your thinking: "I have evaluated step X..." If not correct, try again. 
+Only when you confirm a step was executed correctly should you move on to the next one.
+Use keyboard shortcuts when possible for UI interactions.
+"""
 
 class WindowsToolExecutor:
     def __init__(self):
@@ -132,8 +139,6 @@ class WindowsToolExecutor:
             ">", ">>", "|", "&", ";", "start"
         ]
         return not any(cmd in command for cmd in forbidden)
-        
-        pass
 
 class ClaudeChat:
     def __init__(self, config_path: Optional[str] = None):
@@ -141,7 +146,7 @@ class ClaudeChat:
         self.conversation_history: List[Dict] = []
         self.tool_executor = WindowsToolExecutor()
         self.config = self._load_config(config_path)
-        self.system_prompt = self.config.get("system_prompt", "")
+        self.system_prompt = SYSTEM_PROMPT
         self.max_tokens = self.config.get("max_tokens", 1024)
         self.temperature = self.config.get("temperature", 0.7)
 
@@ -158,6 +163,7 @@ class ClaudeChat:
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
+                system=self.system_prompt,
                 tools=[
                     {
                         "type": "computer_20241022",
@@ -182,6 +188,10 @@ class ClaudeChat:
             # Handle tool use in a loop
             while response.stop_reason == 'tool_use':
                 tool_call = response.content[0].tool_calls[0]
+                
+                # Evaluate the result of the tool use
+                self._evaluate_tool_result(tool_call)
+                
                 ui_logger.debug(f"Tool call received: {tool_call}")
                 
                 # Execute the tool and get the result
@@ -240,6 +250,15 @@ class ClaudeChat:
             ui_logger.error(traceback.format_exc())
             return f"Error: {str(e)}"
 
+    def _evaluate_tool_result(self, tool_result):
+        """Evaluate the result of a tool use and take appropriate action."""
+        if tool_result.get("type") == "computer_result" and tool_result.get("base64_image"):
+            # Here you would implement logic to evaluate the screenshot
+            # For example, you could use computer vision to check if the desired outcome was achieved
+            # For now, we'll just log that we received a screenshot
+            ui_logger.info("Received screenshot after tool use. Evaluation needed.")
+        # Add more evaluation logic for other tool types as needed
+
     def format_conversation_history(self) -> str:
         """Format conversation history with markdown support."""
         formatted_chat = []
@@ -261,7 +280,6 @@ class ClaudeChat:
     def _load_config(self, config_path: Optional[str]) -> Dict:
         """Load configuration with Windows-compatible paths."""
         default_config = {
-            "system_prompt": "You are a helpful AI assistant.",
             "temperature": 0.7,
             "max_tokens": 1024,
             "conversation_save_path": os.path.join(os.environ.get('USERPROFILE', ''), 'Documents', 'ClaudeChat')
@@ -293,8 +311,6 @@ class ClaudeChat:
     def update_temperature(self, temp: float) -> None:
         """Update the temperature setting."""
         self.temperature = float(temp)
-        
-        pass
 
 def create_ui() -> gr.Interface:
     # Check Windows version
