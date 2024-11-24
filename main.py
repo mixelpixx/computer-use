@@ -149,46 +149,83 @@ class ClaudeChat:
         """Process user input and get Claude's response."""
         try:
             ui_logger.info(f"Processing user input: {user_input[:100]}...")
-            # Add user message to history
             self.conversation_history.append({
                 "role": "user",
                 "content": user_input
             })
             
             response = self.client.beta.messages.create(
-                model="claude-2",
+                model="claude-3-5-sonnet-20241022",
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
                 tools=[
-                    # {
-                    #     "type": "computer_20241022",
-                    #     "name": "computer",
-                    #     "display_width_px": 1024,
-                    #     "display_height_px": 768,
-                    #     "display_number": 1,
-                    # },
-                    # {
-                    #     "type": "text_editor_20241022",
-                    #     "name": "str_replace_editor"
-                    # },
-                    # {
-                    #     "type": "bash_20241022",
-                    #     "name": "bash"
-                    # }
+                    {
+                        "type": "computer_20241022",
+                        "name": "computer",
+                        "display_width_px": 1024,
+                        "display_height_px": 768,
+                        "display_number": 1,
+                    },
+                    {
+                        "type": "text_editor_20241022",
+                        "name": "str_replace_editor"
+                    },
+                    {
+                        "type": "bash_20241022",
+                        "name": "bash"
+                    }
                 ],
                 messages=self.conversation_history,
-                # betas=["computer-use-2024-10-22"]
+                betas=["computer-use-2024-10-22"]
             )
             
-            api_logger.debug(f"API response received: {str(response)[:200]}...")
-            # Extract assistant's response
-            if response.stop_reason == 'tool_code':
-                tool_code = response.content[0].tool_calls[0]
-                print(tool_code)
+            # Handle tool use in a loop
+            while response.stop_reason == 'tool_use':
+                tool_call = response.content[0].tool_calls[0]
+                ui_logger.debug(f"Tool call received: {tool_call}")
+                
                 # Execute the tool and get the result
-                tool_result = self.tool_executor.execute_computer_tool(tool_code)
-                print(tool_result)
-            assistant_message = response.content[0].text
+                tool_result = self.tool_executor.execute_computer_tool(tool_call)
+                ui_logger.debug(f"Tool result: {tool_result}")
+                
+                # Continue the conversation with the tool result
+                self.conversation_history.append({
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [tool_call]
+                })
+                self.conversation_history.append({
+                    "role": "tool",
+                    "content": json.dumps(tool_result),
+                    "tool_call_id": tool_call.id
+                })
+                
+                # Get next response
+                response = self.client.beta.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    messages=self.conversation_history,
+                    tools=[
+                        {
+                            "type": "computer_20241022",
+                            "name": "computer",
+                            "display_width_px": 1024,
+                            "display_height_px": 768,
+                            "display_number": 1,
+                        },
+                        {
+                            "type": "text_editor_20241022",
+                            "name": "str_replace_editor"
+                        },
+                        {
+                            "type": "bash_20241022",
+                            "name": "bash"
+                        }
+                    ],
+                    betas=["computer-use-2024-10-22"]
+                )
+            
+            # Final response after tools are done
+            assistant_message = response.content[0].text if response.content else ""
             
             # Add assistant response to history
             self.conversation_history.append({
