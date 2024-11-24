@@ -142,6 +142,7 @@ class ClaudeChat:
         self.tool_executor = WindowsToolExecutor()
         self.config = self._load_config(config_path)
         self.system_prompt = self.config.get("system_prompt", "")
+        self.max_tokens = self.config.get("max_tokens", 1024)
         self.temperature = self.config.get("temperature", 0.7)
 
     def get_claude_response(self, user_input: str) -> str:
@@ -155,32 +156,38 @@ class ClaudeChat:
             })
             
             response = self.client.beta.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=self.config.get("max_tokens", 1024),
+                model="claude-2",
+                max_tokens=self.max_tokens,
                 temperature=self.temperature,
                 tools=[
-                    {
-                        "type": "computer_20241022",
-                        "name": "computer",
-                        "display_width_px": 1024,
-                        "display_height_px": 768,
-                        "display_number": 1,
-                    },
-                    {
-                        "type": "text_editor_20241022",
-                        "name": "str_replace_editor"
-                    },
-                    {
-                        "type": "bash_20241022",
-                        "name": "bash"
-                    }
+                    # {
+                    #     "type": "computer_20241022",
+                    #     "name": "computer",
+                    #     "display_width_px": 1024,
+                    #     "display_height_px": 768,
+                    #     "display_number": 1,
+                    # },
+                    # {
+                    #     "type": "text_editor_20241022",
+                    #     "name": "str_replace_editor"
+                    # },
+                    # {
+                    #     "type": "bash_20241022",
+                    #     "name": "bash"
+                    # }
                 ],
                 messages=self.conversation_history,
-                betas=["computer-use-2024-10-22"]
+                # betas=["computer-use-2024-10-22"]
             )
             
             api_logger.debug(f"API response received: {str(response)[:200]}...")
             # Extract assistant's response
+            if response.stop_reason == 'tool_code':
+                tool_code = response.content[0].tool_calls[0]
+                print(tool_code)
+                # Execute the tool and get the result
+                tool_result = self.tool_executor.execute_computer_tool(tool_code)
+                print(tool_result)
             assistant_message = response.content[0].text
             
             # Add assistant response to history
