@@ -5,6 +5,7 @@ from typing import ClassVar, Literal
 from anthropic.types.beta import BetaToolBash20241022Param
 
 from .base import BaseAnthropicTool, CLIResult, ToolError, ToolResult
+from .debug import tool_logger, log_performance
 
 
 class _BashSession:
@@ -22,17 +23,23 @@ class _BashSession:
         self._started = False
         self._timed_out = False
 
+    @log_performance
     async def start(self):
         if self._started:
             return
 
-        self._process = await asyncio.create_subprocess_shell(
-            self.command,
-            shell=True,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        try:
+            self._process = await asyncio.create_subprocess_shell(
+                self.command,
+                shell=True,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            tool_logger.info(f"Started Windows command prompt process: {self._process.pid}")
+        except Exception as e:
+            tool_logger.error(f"Failed to start Windows command prompt: {str(e)}")
+            raise ToolError(f"Failed to start Windows command prompt: {str(e)}")
 
         self._started = True
 
@@ -43,12 +50,14 @@ class _BashSession:
         if self._process.returncode is not None:
             return
         self._process.terminate()
+        tool_logger.info("Terminated Windows command prompt process")
 
     async def run(self, command: str):
         """Execute a command in the command prompt."""
         if not self._started:
             raise ToolError("Session has not started.")
         if self._process.returncode is not None:
+            tool_logger.error(f"Command prompt exited with code {self._process.returncode}")
             return ToolResult(
                 system="tool must be restarted",
                 error=f"command prompt has exited with returncode {self._process.returncode}",

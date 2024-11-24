@@ -14,6 +14,8 @@ import platform
 from dotenv import load_dotenv
 import winreg  # Windows registry access
 import ctypes  # For Windows admin checks
+from tools.debug import ui_logger, api_logger, log_system_info, monitor_resources
+import traceback
 
 load_dotenv()
     
@@ -76,7 +78,6 @@ class WindowsToolExecutor:
                     # Use Windows-specific command execution
                     startupinfo = subprocess.STARTUPINFO()
                     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    
                     result = subprocess.run(
                         command,
                         shell=True,
@@ -145,13 +146,14 @@ class ClaudeChat:
 
     def get_claude_response(self, user_input: str) -> str:
         """Process user input and get Claude's response."""
-        # Add user message to history
-        self.conversation_history.append({
-            "role": "user",
-            "content": user_input
-        })
-        
         try:
+            ui_logger.info(f"Processing user input: {user_input[:100]}...")
+            # Add user message to history
+            self.conversation_history.append({
+                "role": "user",
+                "content": user_input
+            })
+            
             response = self.client.beta.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=self.config.get("max_tokens", 1024),
@@ -177,6 +179,7 @@ class ClaudeChat:
                 betas=["computer-use-2024-10-22"]
             )
             
+            api_logger.debug(f"API response received: {str(response)[:200]}...")
             # Extract assistant's response
             assistant_message = response.content[0].text
             
@@ -189,6 +192,8 @@ class ClaudeChat:
             return self.format_conversation_history()
             
         except Exception as e:
+            ui_logger.error(f"Error processing request: {str(e)}")
+            ui_logger.error(traceback.format_exc())
             return f"Error: {str(e)}"
 
     def format_conversation_history(self) -> str:
@@ -333,6 +338,8 @@ if __name__ == "__main__":
         if sys.stdout.encoding != 'utf-8':
             sys.stdout.reconfigure(encoding='utf-8')
     
+    log_system_info()
+    monitor_resources()
     interface = create_ui()
     interface.launch(
         server_name="127.0.0.1",  # Use localhost for Windows
