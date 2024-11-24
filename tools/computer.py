@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Literal, TypedDict
 from uuid import uuid4
-
+from enum import Enum, StrEnum
 import pyautogui
 from PIL import ImageGrab
 from anthropic.types.beta import BetaToolComputerUse20241022Param
